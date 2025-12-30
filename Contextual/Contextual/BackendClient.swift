@@ -141,4 +141,32 @@ class BackendClient: ObservableObject {
                 }
             })
         }
+
+
+    // MARK: - High-level helpers (folders)
+
+    func listFolder(path: String, completion: @escaping ([SearchResult]) -> Void) {
+        sendRequest(method: "list_folder", params: ["path": path]) { response in
+            if let data = response["data"] as? [[String: Any]] {
+                let rows: [SearchResult] = data.compactMap { dict in
+                    guard let p = dict["path"] as? String else { return nil }
+                    return SearchResult(
+                        path: p,
+                        snippet: dict["snippet"] as? String,
+                        kind: dict["kind"] as? String,
+                        ext: dict["ext"] as? String,
+                        summary: dict["summary"] as? String,
+                        tech_stack: dict["tech_stack"] as? String,
+                        size: dict["size"] as? Int,
+                        last_modified: dict["last_modified"] as? Double,
+                        creation_time: dict["creation_time"] as? Double
+                    )
+                }
+                completion(rows)
+            } else {
+                completion([])
+            }
+        }
+    }
+
 }

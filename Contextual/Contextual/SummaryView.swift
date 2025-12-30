@@ -20,6 +20,12 @@ struct SummaryView: View {
     @State private var isExpanded: Bool = false
     @State private var techStack: String = "Loading..."
     @State private var searchContext: String = "Analyzing..."
+    
+    // Folder details (optional)
+    @State private var folderStatsLine: String = ""
+    @State private var folderTypesLine: String = ""
+    @State private var folderReactLine: String = ""
+    @State private var folderReactFiles: [String] = []
     @State private var createdDate: String = ""
     @State private var modifiedDate: String = ""
     
@@ -85,7 +91,58 @@ struct SummaryView: View {
                                     .disabled(true)
                             }
                             
-                            // Tech Stack
+    
+                        // Folder Details (if backend returned them)
+                        if !folderStatsLine.isEmpty || !folderTypesLine.isEmpty || !folderReactLine.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "folder.fill")
+                                        .foregroundColor(.orange)
+                                    Text("Folder Details")
+                                        .font(.caption)
+                                        .bold()
+                                        .foregroundColor(.secondary)
+                                }
+
+                                if !folderStatsLine.isEmpty {
+                                    Text(folderStatsLine)
+                                        .font(.callout)
+                                }
+
+                                if !folderTypesLine.isEmpty {
+                                    Text(folderTypesLine)
+                                        .font(.callout)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                if !folderReactLine.isEmpty {
+                                    Text(folderReactLine)
+                                        .font(.callout)
+                                }
+
+                                if !folderReactFiles.isEmpty {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("React files")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        ForEach(folderReactFiles.prefix(12), id: \.self) { f in
+                                            Text("• " + f)
+                                                .font(.caption)
+                                        }
+                                        if folderReactFiles.count > 12 {
+                                            Text("… and \(folderReactFiles.count - 12) more")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding()
+                            .background(Color.secondary.opacity(0.15))
+                            .cornerRadius(12)
+                        }
+
+                        // Tech Stack
                             Group {
                                 Text("🛠️ Tech Stack")
                                     .font(.caption)
@@ -210,6 +267,19 @@ struct SummaryView: View {
                 self.techStack = stack
             }
             
+            // UI safety: if backend guessed poorly, infer from extension
+            if (self.techStack.lowercased() == "markdown" || self.techStack.lowercased() == "plain text" || self.techStack.lowercased() == "unknown"),
+               let inferred = inferredTechFromExtension(path: path) {
+                self.techStack = inferred
+            }
+
+            if let details = response["folder_details"] as? [String: Any] {
+                if let stats = details["stats_line"] as? String { self.folderStatsLine = stats }
+                if let types = details["types_line"] as? String { self.folderTypesLine = types }
+                if let reactLine = details["react_line"] as? String { self.folderReactLine = reactLine }
+                if let reactFiles = details["react_files"] as? [String] { self.folderReactFiles = reactFiles }
+            }
+            
             if let context = response["search_context"] as? String {
                 self.searchContext = context
             }
@@ -233,3 +303,30 @@ struct SummaryView: View {
         }
     }
 }
+// Infer tech stack by file extension (basic heuristic)
+private func inferredTechFromExtension(path: String) -> String? {
+    let ext = URL(fileURLWithPath: path).pathExtension.lowercased()
+    switch ext {
+    case "swift": return "Swift"
+    case "m", "mm", "h": return "Objective-C/C++"
+    case "js": return "JavaScript"
+    case "ts": return "TypeScript"
+    case "jsx": return "React (JSX)"
+    case "tsx": return "React (TSX)"
+    case "py": return "Python"
+    case "java": return "Java"
+    case "kt": return "Kotlin"
+    case "cpp", "cc", "cxx": return "C++"
+    case "c": return "C"
+    case "rb": return "Ruby"
+    case "go": return "Go"
+    case "rs": return "Rust"
+    case "php": return "PHP"
+    case "html": return "HTML"
+    case "css": return "CSS"
+    case "sh": return "Shell Script"
+    case "md": return "Markdown"
+    default: return nil
+    }
+}
+
